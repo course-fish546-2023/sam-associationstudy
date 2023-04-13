@@ -1,0 +1,21 @@
+---
+title: "main"
+author: "Samuel Cryan"
+date: "2023-04-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+``` {r install_packages}
+  library(reticulate)
+  py_install("ncbi-genome-download",pip=TRUE)
+```
+
+# Download Reference Genomes
+``` {python download}
+  ncbi-genome-download bacteria -s refseq -g "lactobacillus" -o ../data/
+  # Currently using python 2.7, need at least python 3.5
+```
