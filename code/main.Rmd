@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ``` {r install_packages}
   library(reticulate)
+  use_python("/usr/lib/python3.7")
   py_install("ncbi-genome-download",pip=TRUE)
 ```
 
