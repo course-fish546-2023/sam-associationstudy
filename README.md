@@ -1,4 +1,4 @@
-# sam-associationstudy
+# Sam's Bacterial Genome Association Study
 
 I will download a set of reference bacteria genomes.
 
