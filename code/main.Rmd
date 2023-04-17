@@ -9,16 +9,26 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+``` {bash}
+curl -o datasets 'https://ftp.ncbi.nlm.nih.gov/pub/datasets/command-line/v2/linux-amd64/datasets'
+```
+
+``` {bash}
+
+```
+
+
 ``` {r install_packages}
   library(reticulate)
-  use_python("/usr/lib/python3.7")
   py_install("ncbi-genome-download",pip=TRUE)
 ```
 
 # Download Reference Genomes
 ``` {python download}
-  ncbi-genome-download bacteria -s refseq -g "lactobacillus" -o ../data/
-  # Currently using python 2.7, need at least python 3.5 according to the notes
+
+ncbi-genome-download --help
+
+# ncbi-genome-download bacteria -s refseq -g "lactobacillus" -o ../data/
 ```
 
 ##Database Generation
