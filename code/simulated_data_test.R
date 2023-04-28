@@ -88,7 +88,7 @@ gene_matches <- colSums(t(gene_genome_matrix)+ref_gene==2)
 gene_totalhits <- colSums(t(gene_genome_matrix)+ref_gene>0)
 
 # Check on output distibution
-lapply(names(head(fave_genes, 10)), function(gene_name){
+test <- lapply(names(head(fave_genes, 10)), function(gene_name){
   table(as.numeric(gene_genome_matrix["AAA",]), 
         as.numeric(gene_genome_matrix[gene_name,]))
 })

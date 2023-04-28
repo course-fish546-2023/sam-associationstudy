@@ -10,26 +10,13 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ``` {bash}
-curl -o datasets 'https://ftp.ncbi.nlm.nih.gov/pub/datasets/command-line/v2/linux-amd64/datasets'
+curl -X GET "https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession/GCF_000006765.1/download?include_annotation_type=GENOME_FASTA" -H "Accept: application/zip" -o ../data/bact_test.zip
 ```
 
 ``` {bash}
-
+datasets download genome taxon human --annotated
 ```
 
-
-``` {r install_packages}
-  library(reticulate)
-  py_install("ncbi-genome-download",pip=TRUE)
-```
-
-# Download Reference Genomes
-``` {python download}
-
-ncbi-genome-download --help
-
-# ncbi-genome-download bacteria -s refseq -g "lactobacillus" -o ../data/
-```
 
 ##Database Generation
 Once the genomes are downloaded, I will want to annotate them (or download the annotated version) and generate a list of all possible genes and then move that data into a sparse matrix.
