@@ -14,7 +14,14 @@ curl -X GET "https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession/GCF_
 ```
 
 ``` {bash}
-datasets download genome taxon human --annotated
+cd ../data
+/home/shared/datasets download genome taxon "acidobacteriota" --annotated --reference --include gff3
+```
+``` {bash}
+cd ../data
+# Delete the Readme to allow unzipping
+# rm README.md
+unzip ncbi_dataset.zip
 ```
 
 

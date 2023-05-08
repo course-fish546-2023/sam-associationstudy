@@ -1,41 +1,18 @@
-# NCBI Datasets
+# Bacterial Reference Genome Association Study
 
-https://www.ncbi.nlm.nih.gov/datasets
+##Database Generation
+Once the genomes are downloaded, I will want to annotate them (or download the annotated version) and generate a list of all possible genes and then move that data into a sparse matrix.
+ - download the ncbi files (ncbi-genome-download) (ideally download the annotations)
+ - repeated full joins across the entire setup to get a large presence/absence matrix
+      - most worried about this step and making sure that I can match up same proteins
+ - convert matrix to a Sparsematrix.
 
-This zip archive contains an NCBI Datasets Data Package.
 
-NCBI Datasets Data Packages can include sequence, annotation and other data files, and metadata in one or more data report files.
-Data report files are in JSON Lines format.
+##Database Search
+From the sparse matrix, I need to choose a target gene, and separate out into two groups, those with and those without the target. I want to sum all the genes, and divide by total number of organisms in both groups, then look at the log fold or difference between the two groups. Sort the list by the largest difference/log fold and plot.
 
----
-## FAQs
-### Where is the data I requested?
-
-Your data is in the subdirectory `ncbi_dataset/data/` contained within this zip archive.
-
-### I still can't find my data, can you help?
-
-We have identified a bug affecting Mac Safari users. When downloading data from the NCBI Datasets web interface, you may see only this README file after the download has completed (while other files appear to be missing).
-As a workaround to prevent this issue from recurring, we recommend disabling automatic zip archive extraction in Safari until Apple releases a bug fix.
-For more information, visit:
-https://www.ncbi.nlm.nih.gov/datasets/docs/reference-docs/mac-zip-bug/
-
-### How do I work with JSON Lines data reports?
-
-Visit our JSON Lines data report documentation page:
-https://www.ncbi.nlm.nih.gov/datasets/docs/v2/tutorials/working-with-jsonl-data-reports/
-
-### What is NCBI Datasets?
-
-NCBI Datasets is a new resource that lets you easily gather data from across NCBI databases. Find and download gene, transcript, protein and genome sequences, annotation and metadata.
-
-### Where can I find NCBI Datasets documentation?
-
-Visit the NCBI Datasets documentaion pages:
-https://www.ncbi.nlm.nih.gov/datasets/docs/
-
----
-
-National Center for Biotechnology Information
-National Library of Medicine
-info@ncbi.nlm.nih.gov
+ - User input for target gene, take that column in the Sparsematrix, use that column as a filter on the matrix, and invert and use as a filter on the other matrix
+ - count number of rows
+ - sum columns in each matrix, then divide by the total number of rows
+ - subtract or divide presence_matrix from absence_matrix
+ - sort across the entire space, and see which genes are the most correlated

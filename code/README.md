@@ -22,6 +22,6 @@ From the sparse matrix, I need to choose a target gene, and separate out into tw
 ### initial_test_materials 
 shows the first test of simulated code, and also a theoretical download pipeline using the NCBI API to download genomes
 
-###final_pipeline
+### final_pipeline
 01-ncbi_download - Rmd document showing the workflow to generate the full presence/absence matrix for all reference genomes. Saves to a CSV labelled merged_genes_full.csv in /data. Matrix approximately 17,000genes x 17,000genomes
 02-full_matrix_test - Rmd document to take the matrix and find the Jaccard similarity score of every gene relative to a reference, and sort.
