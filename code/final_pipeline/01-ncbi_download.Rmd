@@ -1,0 +1,94 @@
+---
+title: "main"
+author: "Samuel Cryan"
+date: "2023-04-13"
+output: html_document
+---
+
+List all the taxa that I'm interested in
+```{r}
+
+```
+
+Taxa Run So Far:
+acidobacteriota
+aquificota
+Deltaproteobacteria
+Bacteroidota
+Chloroflexota 
+Bacillota - dominates currently
+Cyanobacteriota
+Mycoplasmatota
+
+Downloading the files
+```{bash}
+cd ../data
+
+rm -r ncbi_dataset
+rm README.md
+
+/home/shared/datasets download genome taxon "bacteria" --annotated --reference --include gff3
+unzip ncbi_dataset.zip
+```
+
+Create a list of all genes present
+```{r Presence}
+library(data.table)
+library(tidyverse)
+accession_list = dir(path="../data/ncbi_dataset/data",pattern="GCF*")
+
+gene_presence_list <- NULL
+
+gene_presence_list <- lapply(accession_list, function(accession_number_i){
+  filename <- paste0("../data/ncbi_dataset/data/", accession_number_i, "/genomic.gff")
+  # Apparently the files have different length headers so we need to skip them dynamically
+  # from https://stackoverflow.com/q/18920777
+  # This makes the reader much slower but I can't figure out how to avoid it otherwise
+  lineskip_command <- paste("grep -v '^#'", filename)
+  # fread is data.table's fast table reader function
+  # we also index for column 3 equaling "gene" at the end here
+  tab_i <- fread(cmd=lineskip_command, sep = "\t", fill = TRUE, )[V3=="gene"]
+  
+  
+  # Approach number 1 - downloading the GeneID name
+  # This regex is a lookbehind (?<=) and grabs all digits (\\d) following 
+  # the lookbehind match
+  # gene_ids <- as.numeric(str_extract(tab_i$V9, pattern = "(?<=Dbxref=GeneID:)\\d+"))
+  
+  # Approach number 2 - using the gene name technique
+  gene_names <- str_extract(tab_i$V9, pattern="(?<=gene=)[^;]*(?=;)")
+  
+  # Remove all but 1 NA
+  gene_names <- unique(gene_names, incomparables=FALSE, fromLast=FALSE, by=seq_along(gene_names))
+  
+  # Rename to avoid name collision on merging
+  output_table <- data.table(1, gene_names)
+  names(output_table) <- c(accession_number_i, "gene_names")
+  return(output_table)
+})
+```
+
+```{r full} 
+genes_merged <- purrr::reduce(gene_presence_list, dplyr::full_join, by="gene_names")
+genes_merged[is.na(genes_merged)] <- 0
+```
+
+``` {r save}
+write.csv(genes_merged, "../data/merged_genes_full.csv", row.names=TRUE)
+```
+
+```{r merge_with_current}
+# Load in the current 
+genes_merged_old <- read.csv("../data/merged_genes.csv",row.names = 1, header= TRUE)
+
+# Reduce using the merge function, keeping all rows, accumulating genes each time
+genes_merged <- purrr::reduce(gene_presence_list, dplyr::full_join, by="gene_names")
+
+# Combine the Two
+genes_merged_new <- merge(genes_merged_old, genes_merged, by="gene_names",all = TRUE)
+genes_merged_new[is.na(genes_merged_new)] <- 0
+
+
+write.csv(genes_merged_new, "../data/merged_genes.csv", row.names=TRUE)
+
+```

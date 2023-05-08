@@ -1,0 +1,49 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(data.table)
+library(tidyverse)
+
+genes_merged <- read.csv("../data/merged_genes_full.csv",row.names = 1, header= TRUE)
+# genes_merged <- column_to_rownames(genes_merged,var="gene_names")
+```
+
+```{r Jaccard}
+ref_gene <- as.numeric(genes_merged["acnA",])
+
+# gene_count =as.data.frame(rowSums(genes_merged))
+# gene_count <- tibble::rownames_to_column(gene_count, "gene_name")
+
+
+# Calculate Jaccard Similarity
+gene_matches <- colSums(t(genes_merged)+ref_gene==2)
+gene_totalhits <- colSums(t(genes_merged)+ref_gene>0)
+fave_genes <- sort(gene_matches/gene_totalhits, decreasing = TRUE)
+
+```
+
+
+```{r matrix}
+# Check the confusion matrix of the top 10 best matched genes
+test <- lapply(names(head(fave_genes, 10)), function(gene_name){
+  table(as.numeric(genes_merged["acnA",]), 
+        as.numeric(genes_merged[gene_name,]))
+})
+```
+
+
+``` {r narG plot}
+# plot the ordered data based on similarity score
+x_steps = seq(1, length(fave_genes)-1, 1)
+y_steps = fave_genes[-1]
+df = data.frame(x=x_steps,y=y_steps)
+ggplot(data=df,mapping = aes(x, y))+geom_point()
+xlab("Rank Order")
+ylab("Similarity Score")
+```
+
+nifH is kinda interesting - lots of metal binding genes associated amidst the other nif genes

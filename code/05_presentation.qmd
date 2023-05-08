@@ -1,0 +1,176 @@
+---
+title: "FISH546 - Association Study Presentation"
+author: "Sam Cryan"
+format: revealjs
+editor: visual
+---
+
+## Within the grand array of microbial genes, which appear together most frequently?
+
+I'm conducting an association study across a range of microbial organisms to see the association between different genes.
+
+## The Pipeline
+
+-   Download genomes
+
+-   Extract genes and make list for each genome
+
+-   Merge list together
+
+-   Choose reference gene
+
+-   Compute similarity score of all genes compared to reference
+
+-   Output list of most and least correlated based on similarity score
+
+## Download Code
+
+```{r download_genes, eval=FALSE, echo=TRUE}
+library(data.table)
+library(tidyverse)
+
+accession_list <- c("GCF_000006765.1","GCF_000011965.2","GCF_000157115.2","GCF_000012345.1")
+
+new_accession_list <- c("GCF_000012345.1")
+
+# Paste the accession IDs together with a URL-safe comma separating them
+accession_string <- paste(new_accession_list, collapse = "%2C")
+
+# Paste the string into the API's URL
+# Request the genome GFF with annotations
+accession_url <- paste0("https://api.ncbi.nlm.nih.gov/datasets/",
+                        "v2alpha/genome/accession/", accession_string,
+                        "/download?include_annotation_type=GENOME_GFF&",
+                        "filename=string_file.zip")
+# You can change where this is saved with the "destfile" argument, righ
+# now it's just the working directory
+download.file(accession_url, destfile = "./data/temp.zip")
+unzip("./data/temp.zip",exdir="./data")
+
+
+# Loop over each entry in accession list, read in the table from the
+# associated folder, and extract the gene IDs
+
+gene_presence_list <- lapply(accession_list, function(accession_number_i){
+  filename <- paste0("./data/ncbi_dataset/data/", accession_number_i, "/genomic.gff")
+  
+  # Apparently the files have different length headers so we need to skip them dynamically
+  # from https://stackoverflow.com/q/18920777
+  # This makes the reader much slower but I can't figure out how to avoid it otherwise
+  lineskip_command <- paste("grep -v '^#'", filename)
+  
+  # fread is data.table's fast table reader function
+  # we also index for column 3 equaling "gene" at the end here
+  tab_i <- fread(cmd=lineskip_command, sep = "\t", fill = TRUE, )[V3=="gene"]
+  
+  
+  # Approach number 1 - downloading the GeneID name
+  # This regex is a lookbehind (?<=) and grabs all digits (\\d) following 
+  # the lookbehind match
+  # gene_ids <- as.numeric(str_extract(tab_i$V9, pattern = "(?<=Dbxref=GeneID:)\\d+"))
+  
+  # Approach number 2 - using the gene name technique
+  gene_names <- str_extract(tab_i$V9, pattern="(?<=gene=)[^;]*(?=;)")
+  
+  # Remove all but 1 NA
+  gene_names <- unique(gene_names, incomparables=FALSE, fromLast=FALSE, by=seq_along(gene_names))
+  
+  # Rename to avoid name collision on merging
+  output_table <- data.table(1, gene_names)
+  names(output_table) <- c(accession_number_i, "gene_names")
+  return(output_table)
+})
+
+# Reduce using the merge function, keeping all rows, accumulating genes each time
+genes_merged <- purrr::reduce(gene_presence_list, dplyr::full_join, by="gene_names")
+```
+
+## How to determine association?
+
+![Jaccard Similarity Metric](images/jaccard.png){fig-align="center"}
+
+## Simulated Data Setup
+
+```{r create_simulated_data,cache=TRUE, echo=TRUE}
+#| code-line-numbers: "|11|16,17"
+
+
+perm_letters <- expand.grid(c(rep("A", 9), rep("B", 4), LETTERS), LETTERS, LETTERS)
+# paste0 (and the more general paste) combines the three columns into a single
+# character vector
+list_of_genes <- paste0(perm_letters$Var1, perm_letters$Var2, perm_letters$Var3)
+
+# Same method as above
+perm_genome_names <- head(expand.grid(LETTERS, 1:40), 1000)
+genome_names <- paste0(perm_genome_names$Var1, perm_genome_names$Var2)
+
+# Loop over each genome to be created and produce a data frame
+genome_list <- lapply(genome_names, function(genome_name){
+  # work from the inside out on this one, it's deeply nested
+  # sample(100:200) to get a random number of genes in a genome
+  # sample(list_of_genes) to figure out exactly which genes those are
+  # Fill in the "present" column with 1s since they're all found in this case
+  v <- data.frame(genes=unique(sample(list_of_genes, size = sample(100:200, size = 1))), genome_name=1)
+  names(v) <- c("genes", genome_name)
+  v
+})
+```
+
+## Create the presence/absence matrix
+
+The first 10x10 in the simulated data matrix:
+
+```{r presence_absence, echo=TRUE,cache=TRUE}
+gene_genome_matrix_raw <- purrr::reduce(genome_list, dplyr::full_join, by="genes")
+gene_genome_matrix <- gene_genome_matrix_raw
+gene_genome_matrix[is.na(gene_genome_matrix)] <- 0
+
+gene_genome_matrix <- gene_genome_matrix[order(gene_genome_matrix$genes),]
+rownames(gene_genome_matrix) <- gene_genome_matrix$genes
+gene_genome_matrix$genes <- NULL
+
+gene_genome_matrix[1:10, 1:10]
+```
+
+## Example of a comparison between two genes
+
+Comparing gene 'AAA' to gene 'YVR' based on which organisms they appear in:
+
+```{r comparison}
+table = table(as.numeric(gene_genome_matrix["AAA",]), 
+      as.numeric(gene_genome_matrix["YVR",]))
+
+table
+
+```
+
+## Example distribution of randomly generated genes compared to gene 'AAA'
+
+Assuming around 17,000 possible genes, and that each genome contains 100-200 genes, with varying frequencies of different gene types.
+
+```{r distr, eval=TRUE, cache=TRUE}
+library(tidyverse)
+
+ref_gene <- as.numeric(gene_genome_matrix["AAA",])
+  
+# Quick calculation of Jaccard by finding the two different values
+gene_matches <- colSums(t(gene_genome_matrix)+ref_gene==2)
+gene_totalhits <- colSums(t(gene_genome_matrix)+ref_gene>0)
+fave_genes <- sort(gene_matches/gene_totalhits, decreasing = TRUE)
+
+```
+
+## 
+
+```{r, echo=FALSE}
+#| label: fig-sim-data
+#| fig-cap: "The Jaccard similarity score for all genes compared to AAA"
+#| fig-width: 6
+#| fig-height: 3.5
+library(data.table)
+library(tidyverse)
+x_steps = seq(1, length(fave_genes)-1, 1)
+y_steps = fave_genes[-1]
+df = data.frame(x=x_steps,y=y_steps)
+ggplot(data=df,mapping = aes(x, y))+geom_point()+labs(x="Rank Order",y="Similarity Score")
+```
