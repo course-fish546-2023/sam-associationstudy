@@ -17,7 +17,8 @@ From the sparse matrix, I need to choose a target gene, and separate out into tw
  - subtract or divide presence_matrix from absence_matrix
  - sort across the entire space, and see which genes are the most correlated
 
-Current Progress:
+## Current Progress:
+
 Week 1+2: Not in Class
 
 Week 3: Generated simulated data and created system to quickly generate a Jaccard score from a presence/absence matrix (under simulated_data_test.R)
