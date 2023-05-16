@@ -1,16 +1,59 @@
 ---
-title: "main"
+title: "01-ncbi download"
 author: "Samuel Cryan"
 date: "2023-04-13"
 output: html_document
 ---
 
-List all the taxa that I'm interested in
-```{r}
+## Current Progress:
+
+Week 1+2: Not in Class
+
+Week 3: Generated simulated data and created system to quickly generate a Jaccard score from a presence/absence matrix (under simulated_data_test.R)
+
+Week 4: Worked on devloping a tool to download reference genomes and create a presence/absence matrix - used NCBI API to download one genome at a time (under download_script.R)
+
+Week 5: Continued working on a download tool, eventually got NCBI datasets to work. Finalized the presence/absence matrix code. Prepared presentation. (under 01-ncbi_download.Rmd)
+
+Week 6: Created a 17,022 genes x 17,056 genomes presence/absence matrix using premade code, ran some initial tests on genes of interest and saw expected correlations (genes within same operon were correlated, genes associated with central carbon metabolism were correlated with each other) (01-ncbi_download.Rmd into 02-full_matrix_test.Rmd)
+
+Week 7: Generated a 17,022 x 17,022 correlation matrix with the Jaccard Similarity score of each gene-gene pair (currently running) (02-full_matrix_test.Rmd) - could also filter out all genes that appear in fewer than X genomes to speed up the calculation.
+
+Week 8: Identify the strongest correlations and research those genes
+
+Week 9: Compare the distribution of probabilities from each gene to each other to search for odd distributions
+
+Week 10: Test other metrics instead of Jaccard and see if specific genes have similar correlations
+
+### OTHER DOCUMENTS:
+Here are additional links to show the project
+
+01 - https://rpubs.com/TheOneCalledSam/1039869
+
+02 - https://rpubs.com/TheOneCalledSam/1039868
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  echo = TRUE,         # Display code chunks
+  eval = FALSE,         # Evaluate code chunks
+  warning = FALSE,     # Hide warnings
+  message = FALSE,     # Hide messages
+  fig.width = 6,       # Set plot width in inches
+  fig.height = 4,      # Set plot height in inches
+  fig.align = "center" # Align plots to the center
+)
 
 ```
 
-Taxa Run So Far:
+# 01 - Presence/Absence Matrix Generation
+
+## Take in initial NCBI taxons and generate a presence/absence matrix
+Two modes - one for specific taxa and one for everything
+
+
+Taxa Run So Far for merged_genes.csv:
 acidobacteriota
 aquificota
 Deltaproteobacteria
@@ -35,12 +78,12 @@ Create a list of all genes present
 ```{r Presence}
 library(data.table)
 library(tidyverse)
-accession_list = dir(path="../data/ncbi_dataset/data",pattern="GCF*")
+accession_list = dir(path="../../data/ncbi_dataset/data",pattern="GCF*")
 
 gene_presence_list <- NULL
 
 gene_presence_list <- lapply(accession_list, function(accession_number_i){
-  filename <- paste0("../data/ncbi_dataset/data/", accession_number_i, "/genomic.gff")
+  filename <- paste0("../../data/ncbi_dataset/data/", accession_number_i, "/genomic.gff")
   # Apparently the files have different length headers so we need to skip them dynamically
   # from https://stackoverflow.com/q/18920777
   # This makes the reader much slower but I can't figure out how to avoid it otherwise
@@ -58,7 +101,7 @@ gene_presence_list <- lapply(accession_list, function(accession_number_i){
   # Approach number 2 - using the gene name technique
   gene_names <- str_extract(tab_i$V9, pattern="(?<=gene=)[^;]*(?=;)")
   
-  # Remove all but 1 NA
+  # Remove all but 1 NA (NA used as a positive control - something that will appear in everything)
   gene_names <- unique(gene_names, incomparables=FALSE, fromLast=FALSE, by=seq_along(gene_names))
   
   # Rename to avoid name collision on merging
@@ -68,18 +111,21 @@ gene_presence_list <- lapply(accession_list, function(accession_number_i){
 })
 ```
 
+Reduce everything into a giant csv
 ```{r full} 
 genes_merged <- purrr::reduce(gene_presence_list, dplyr::full_join, by="gene_names")
 genes_merged[is.na(genes_merged)] <- 0
 ```
 
+Save full file to the csv
 ``` {r save}
-write.csv(genes_merged, "../data/merged_genes_full.csv", row.names=TRUE)
+write.csv(genes_merged, "../../data/merged_genes_full.csv", row.names=TRUE)
 ```
 
+If adding genomes to the current merged_genes.csv (NOTE: not merged_genes_full.csv) 
 ```{r merge_with_current}
 # Load in the current 
-genes_merged_old <- read.csv("../data/merged_genes.csv",row.names = 1, header= TRUE)
+genes_merged_old <- read.csv("../../data/merged_genes.csv",row.names = 1, header= TRUE)
 
 # Reduce using the merge function, keeping all rows, accumulating genes each time
 genes_merged <- purrr::reduce(gene_presence_list, dplyr::full_join, by="gene_names")
@@ -88,7 +134,6 @@ genes_merged <- purrr::reduce(gene_presence_list, dplyr::full_join, by="gene_nam
 genes_merged_new <- merge(genes_merged_old, genes_merged, by="gene_names",all = TRUE)
 genes_merged_new[is.na(genes_merged_new)] <- 0
 
-
-write.csv(genes_merged_new, "../data/merged_genes.csv", row.names=TRUE)
+write.csv(genes_merged_new, "../../data/merged_genes.csv", row.names=TRUE)
 
 ```
