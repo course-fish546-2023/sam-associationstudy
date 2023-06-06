@@ -6,9 +6,6 @@ output:
   html_document:
     df_print: paged
 ---
-
-## Using the Presence/Absence Matrix, generate Jaccard of a specific reference gene
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(
@@ -23,23 +20,31 @@ knitr::opts_chunk$set(
 
 ```
 
+Jaccard Similarity Score - the number of matching hits, divided by all possible hits between the two. The higher the score, the more similar the distribution of those genes across genomes.
+![jaccard](../images/jaccard.png)
+
+# Heatmap of 3600 most abundant genes across reference bacterial species
+![Heatmap](../images/HeatMap.PNG)
+
+## Using the Presence/Absence Matrix, generate Jaccard of a specific reference gene
 
 Load in the presence/absence matrix
-```{r, eval=TRUE}
+```{r Download_Data, eval=TRUE, cache=TRUE}
 library(data.table)
 library(tidyverse)
 
 # read_csv or vroom are better alternatives
-genes_merged <- read_csv("../../data/merged_genes_full.csv",row.names = 1, header= TRUE)
+genes_merged <- read.csv("../../data/merged_genes_full.csv",row.names = 1, header= TRUE)
 gene_list = genes_merged[,"gene_names"]
 genes_merged <- column_to_rownames(genes_merged,var="gene_names")
 ```
 
 
+## Single Gene Comparisons
 Generate Jaccard Similarity Score for each gene against a specific reference gene
 ```{r Jaccard, eval=TRUE, cache=TRUE}
 # Pick the reference gene you're going to track
-ref_gene <- as.numeric(genes_merged["acnA",])
+ref_gene <- as.numeric(genes_merged["nifH",])
 
 # gene_count =as.data.frame(rowSums(genes_merged))
 # gene_count <- tibble::rownames_to_column(gene_count, "gene_name")
@@ -51,7 +56,7 @@ gene_totalhits <- colSums(t(genes_merged)+ref_gene>0)
 fave_genes <- sort(gene_matches/gene_totalhits, decreasing = TRUE)
 ```
 
-Generates a confusion matrix of the top 10 best hits
+Generates a confusion matrix of the top 10 best hits - useful to verify the matrix
 ```{r matrix}
 # Check the confusion matrix of the top 10 best matched genes
 confusion_top10 <- lapply(names(head(fave_genes, 10)), function(gene_name){
@@ -62,6 +67,7 @@ confusion_top10 <- lapply(names(head(fave_genes, 10)), function(gene_name){
 
 Plot the distribution
 ``` {r narG plot, eval=TRUE}
+library(tidyverse)
 # plot the ordered data based on similarity score
 x_steps = seq(1, length(fave_genes)-1, 1)
 y_steps = fave_genes[-1]
@@ -71,7 +77,6 @@ ggplot(data=df,mapping = aes(x, y))+geom_point()
 ### Notes from specific genes
 
 nifH is kinda interesting - lots of metal binding genes associated amidst the other nif genes
-
 
 
 ## Generate a Jaccard similarity matrix of all genes with greater than 100 counts
@@ -108,12 +113,12 @@ row.names(jaccard_matrix) <- gene_list
 write.csv(jaccard_matrix, "../../data/jaccard_matrix.csv", row.names=TRUE)
 ```
 Find the highest values 
-```{r}
+```{r, eval=FALSE, cache= TRUE}
 heatmap(jaccard_matrix, sym=TRUE)
 ```
 Distance Clustering - just hierachical. There are three general clusters that immediately jump out to me. Guess is that the first cluster is all of the core required genes that almost all microbes have. But what about everything else?
 
-
+Verify the dendrogram - cophenetic correlation ends up being around 0.78, not amazing but reasonable to work with.
 ```{r}
 hc = hclust(dist(jaccard_matrix))
 plot(hc)
@@ -167,7 +172,97 @@ gene_count$abundance = gene_count$`rowSums(genes_merged)`/17019
 
 
 
-``` {r}
+``` {r frr_example, eval=TRUE, cache=TRUE}
+library(tidyverse)
+jaccard_matrix = read.csv("../../data/jaccard_matrix.csv", row.names=1, header=TRUE)
+ggplot()+geom_histogram(aes(jaccard_matrix[,"frr"]),bins = 200)
 
+```
+
+```{r additional_nifH, eval=TRUE}
+ggplot()+geom_histogram(aes(jaccard_matrix[,"nifH"]),bins = 200)
+```
+
+```{r additional_tssK, eval=TRUE}
+ggplot()+geom_histogram(aes(jaccard_matrix[,"cirA"]),bins = 200)
+```
+Which genes have the most correlation
+```{r}
+genes_total_corr = as.data.frame(rowSums(jaccard_matrix))
+cluster1_df = as.data.frame(cluster1)
+# Need to fix
+test = filter(genes_total_corr, rownames(genes_total_corr) == cluster1)
+```
+
+# Quick Script to take a gene and find the most correlated values
+```{r}
+ref_gene = "betA"
+fav_genes = sort(jaccard_matrix[ref_gene,],decreasing=TRUE)
+```
+
+
+## Co-occurence Graph
+```{r cooccurence}
+library(igraph)
+graph_jaccard_matrix = jaccard_matrix
+graph_jaccard_matrix[jaccard_matrix < 0.6] <- 0
+graph_jaccard_matrix <- as.matrix(graph_jaccard_matrix)
+graph_jaccard <- graph.adjacency(graph_jaccard_matrix, mode="undirected", weighted = T,diag=FALSE)
+coords <- layout_in_circle(graph_jaccard)
+plot(graph_jaccard, layout=coords)
+
+```
+
+
+Code based on https://plotly.com/r/network-graphs/
+
+```{r plot_graph_plotly_attempt}
+vs <- V(graph_jaccard)
+es <- as.data.frame(get.edgelist(graph_jaccard))
+
+Nv <- length(vs)
+Ne <- length(es[1]$V1)
+Xn <- coords[,1]
+Yn <- coords[,2]
+
+network <- plot_ly(x = ~Xn, y = ~Yn, mode = "markers", text = vs$label, hoverinfo = "text")
+
+edge_shapes <- list()
+for(i in 1:Ne) {
+  v0 <- es[i,]$V1
+  v1 <- es[i,]$V2
+
+  edge_shape = list(
+    type = "line",
+    line = list(color = "#030303", width = 0.3),
+    x0 = Xn[v0],
+    y0 = Yn[v0],
+    x1 = Xn[v1],
+    y1 = Yn[v1]
+  )
+
+  edge_shapes[[i]] <- edge_shape
+}
+ 
+axis <- list(title = "", showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE)
+
+fig <- layout(
+  network,
+  title = 'Gene Co-occurence Network',
+  shapes = edge_shapes,
+  xaxis = axis,
+  yaxis = axis
+)
+
+```
+
+```{r savefig}
+library(htmlwidgets)
+
+htmlwidgets::saveWidget(
+                widget = fig, #the plotly object
+                file = "figure.html", #the path & file name
+                selfcontained = TRUE #creates a single html file
+                )
 
 ```
